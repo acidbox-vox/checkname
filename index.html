@@ -2,71 +2,83 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <title>ระบบตรวจสอบรายชื่อ Real-time (GitHub v1.1)</title>
+  <title>ระบบตรวจสอบรายชื่อบรรทัดตรงกัน (GitHub v2.0)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
     body { font-family: 'Sarabun', sans-serif; }
+    /* ซ่อน Scrollbar ของฝั่ง Input ไม่ให้เกะกะ แต่ยัง Scroll ไปพร้อมกันได้ */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen p-4 md:p-8">
+<body class="bg-slate-100 min-h-screen p-4 md:p-8">
 
-  <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-md p-6">
-    <h1 class="text-2xl font-bold text-gray-800 mb-2 flex items-center gap-2">
-      🔍 ระบบตรวจสอบ ยศ-ชื่อ-นามสกุล (Real-time via GitHub)
-    </h1>
-    <p class="text-sm text-gray-500 mb-6">ก๊อปปี้รายชื่อมาวางในกล่องซ้ายมือ ระบบจะเปรียบเทียบข้อมูลด้วย Levenshtein Distance และแสดงผลที่ถูกต้องแบบทันที</p>
+  <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-gray-200 pb-4 mb-4">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+          🔍 ระบบตรวจสอบ ยศ-ชื่อ-นามสกุล (ล็อกบรรทัดตรงกัน)
+        </h1>
+        <p class="text-sm text-gray-500 mt-1">ก๊อปปี้ข้อมูลรายชื่อจาก Excel มาวางในช่องรับข้อมูล ระบบจะเปรียบเทียบและแสดงผลลัพธ์ในแถวเดียวกันทันที</p>
+      </div>
+      <div id="rowCount" class="mt-2 md:mt-0 text-sm font-bold bg-blue-100 text-blue-800 px-3 py-1.5 rounded-lg text-center">
+        0 รายการ
+      </div>
+    </div>
 
-    <div id="loadingStatus" class="mb-4 p-3 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium animate-pulse">
+    <div id="loadingStatus" class="mb-4 p-3 bg-amber-50 text-amber-700 rounded-lg text-sm font-medium animate-pulse">
       ⏳ กำลังดึงฐานข้อมูลล่าสุดจาก Google Sheets กรุณารอสักครู่...
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      
-      <div class="lg:col-span-1">
-        <label class="block text-sm font-medium text-gray-700 mb-2">วางรายชื่อที่ต้องการตรวจสอบที่นี่:</label>
-        <textarea 
-          id="inputArea" 
-          disabled 
-          class="w-full h-[500px] p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-all" 
-          placeholder="วางข้อมูลดิบที่นี่ เช่น:&#10;น.อ. สมชาย ดีใจ&#10;น.ท.หญิง สมศรี วันดี&#10;นาย สมศักดิ์ รักชาติ"></textarea>
-        <p class="text-xs text-gray-400 mt-1.5">* สามารถ Copy ข้อมูลคอลัมน์รายชื่อจาก Excel/Line มาแปะลงไปตรงๆ ได้เลย</p>
-      </div>
+    <div class="mb-6">
+      <label class="block text-sm font-semibold text-gray-700 mb-2">1. วางรายชื่อที่ต้องการตรวจสอบลงในกล่องนี้:</label>
+      <textarea 
+        id="mainInput" 
+        disabled 
+        class="w-full h-32 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-all text-sm" 
+        placeholder="ก๊อปปี้รายชื่อมาแปะตรงนี้ได้เลย (ระบบจะแยกบรรทัดและนำไปจัดเรียงเทียบให้ด้านล่างอัตโนมัติ)&#10;ตัวอย่าง:&#10;น.อ. สมชาย ดีใจ&#10;น.ท.หญิง สมศรี วันดี"></textarea>
+    </div>
 
-      <div class="lg:col-span-2">
-        <div class="flex justify-between items-center mb-2">
-          <span class="text-sm font-medium text-gray-700">ผลลัพธ์ที่ถูกต้อง (ดับเบิ้ลคลิกเพื่อก๊อปปี้รายช่อง หรือลากคลุมดำเพื่อก๊อปปี้ไปใช้):</span>
-          <span id="rowCount" class="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded font-bold">0 รายการ</span>
-        </div>
+    <div class="space-y-2">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between">
+        <label class="text-sm font-semibold text-gray-700">2. ตารางเปรียบเทียบผลลัพธ์ (คอลัมน์ตรงกันบรรทัดต่อบรรทัด):</label>
         
-        <div class="overflow-x-auto border border-gray-200 rounded-lg shadow-sm max-h-[500px] overflow-y-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50 sticky top-0 z-10">
-              <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ที่</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ยศ ชื่อ-สกุล ที่ถูกต้อง</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ตำแหน่ง</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">สถานะ</th>
-              </tr>
-            </thead>
-            <tbody id="resultBody" class="bg-white divide-y divide-gray-200 text-sm代">
-              <tr>
-                <td colspan="4" class="px-4 py-12 text-center text-gray-400">ยังไม่มีข้อมูลสำหรับการตรวจสอบ (กรุณารอโหลดฐานข้อมูล)</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <button 
+          id="copyColBtn"
+          class="mt-2 sm:mt-0 inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-1.5 rounded shadow transition-colors">
+          📋 ก๊อปปี้เฉพาะคอลัมน์ชื่อที่ถูกต้องทั้งหมด
+        </button>
       </div>
 
+      <div class="overflow-x-auto border border-gray-200 rounded-lg shadow-inner max-h-[550px] overflow-y-auto">
+        <table class="min-w-full divide-y divide-gray-200 table-fixed">
+          <thead class="bg-slate-800 text-white sticky top-0 z-10 text-xs uppercase font-medium">
+            <tr>
+              <th class="w-12 px-3 py-3 text-center">ที่</th>
+              <th class="w-1/4 px-4 py-3 text-left bg-slate-700">✍️ ชื่อที่คุณส่งตรวจสอบ</th>
+              <th class="w-1/3 px-4 py-3 text-left">✅ ยศ ชื่อ-สกุล ที่ถูกต้อง</th>
+              <th class="w-1/4 px-4 py-3 text-left">📌 ตำแหน่ง</th>
+              <th class="w-28 px-4 py-3 text-center">สถานะ</th>
+            </tr>
+          </thead>
+          <tbody id="resultBody" class="bg-white divide-y divide-gray-200 text-sm">
+            <tr>
+              <td colspan="5" class="px-4 py-16 text-center text-gray-400 font-medium">
+                ยังไม่มีข้อมูล (กรุณาพิมพ์หรือวางรายชื่อในกล่องข้อห้ามด้านบน)
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
   <script>
-    // ⚠️ นำ URL ของ Web App (ที่ได้จากการ Deploy ใน Google Sheets) มาวางแทนที่ตรงนี้
+    // ⚠️ นำ URL ของ Web App จาก Google Sheets มาวางแทนที่ตรงนี้
     const API_URL = "https://script.google.com/macros/s/AKfycbxwp_dwpOHzMq7oOHGeex84eFoeATXvWgljAM1y5Jj98n0q3aFspG5_3GhQn_HxmIGppw/exec";
 
-    // รายการยศสำหรับตัดคำคำนวณ (เรียงจากยาวไปสั้นเพื่อป้องกันบั๊กตัดคำผิด)
     const knownRanks = [
       "น.อ.(พ) หญิง", "น.อ.(พ)", "น.อ.หญิง", "น.อ.",
       "น.ท.หญิง", "น.ท.", "น.ต.หญิง", "น.ต.",
@@ -77,56 +89,49 @@
       "นาย", "นาง", "นางสาว"
     ].sort((a, b) => b.length - a.length);
 
-    let dbData = []; // เก็บข้อมูลผู้ใช้ทั้งหมดที่ดึงมาจาก Google Sheets
+    let dbData = [];
 
-    // จังหวะเริ่มเปิดเว็บ: ให้วิ่งไปขอข้อมูลจาก Google Sheets ผ่าน API ทันที
+    // โหลดข้อมูลตอนเปิดหน้าจอ
     window.addEventListener('DOMContentLoaded', () => {
       if(API_URL === "ใส่_WEB_APP_URL_ที่นี่"){
-         document.getElementById('loadingStatus').innerHTML = '⚠️ แจ้งเตือน: กรุณานำ URL ของ Apps Script มาใส่ในโค้ด JavaScript บรรทัดที่ 77 ก่อนใช้งาน';
-         document.getElementById('loadingStatus').className = "mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm font-medium";
+         const status = document.getElementById('loadingStatus');
+         status.innerHTML = '⚠️ แจ้งเตือน: กรุณานำ URL ของ Apps Script มาใส่ในโค้ด JavaScript ก่อนใช้งาน';
+         status.className = "mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm font-medium animate-none";
          return;
       }
 
       fetch(API_URL)
         .then(res => res.json())
         .then(data => {
-          if(data.error) {
-            throw new Error(data.error);
-          }
+          if(data.error) throw new Error(data.error);
           dbData = data;
           const status = document.getElementById('loadingStatus');
-          status.innerHTML = '✅ โหลดฐานข้อมูลจาก Google Sheets เรียบร้อยแล้ว! (พร้อมตรวจสอบข้อมูลแบบ Real-time)';
+          status.innerHTML = '✅ เชื่อมต่อฐานข้อมูลสำเร็จ! ระบบล็อกบรรทัดพร้อมใช้งาน';
           status.className = "mb-4 p-3 bg-green-50 text-green-700 rounded-lg text-sm font-medium";
           
-          // เปิดให้กล่องข้อความทำงานได้หลังจากโหลด DB เสร็จ
-          const inputArea = document.getElementById('inputArea');
-          inputArea.removeAttribute('disabled');
-          inputArea.focus();
+          const mainInput = document.getElementById('mainInput');
+          mainInput.removeAttribute('disabled');
+          mainInput.focus();
         })
         .catch(err => {
-          document.getElementById('loadingStatus').innerHTML = '❌ ดึงข้อมูลฐานข้อมูลล้มเหลว: ' + err.message;
+          document.getElementById('loadingStatus').innerHTML = '❌ ดึงข้อมูลล้มเหลว: ' + err.message;
           document.getElementById('loadingStatus').className = "mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm font-medium animate-none";
         });
     });
 
-    // ตรวจสอบข้อมูลทันทีที่มีการเปลี่ยนแปลงในกล่องข้อความ (Real-time)
-    document.getElementById('inputArea').addEventListener('input', processValidation);
-
-    // ฟังก์ชันจัดรูปแบบการเว้นวรรคยศ
-    function shouldSpaceAfterRank(rank) { 
-      return /(หญิง|\(พ\))/.test(rank || ""); 
-    }
+    // ดักฟังเหตุการณ์เมื่อมีการแปะหรือคีย์ข้อมูลดิบ
+    document.getElementById('mainInput').addEventListener('input', processValidation);
     
+    // ดักฟังก์ชันปุ่มก๊อปปี้ทั้งคอลัมน์
+    document.getElementById('copyColBtn').addEventListener('click', copyValidNamesColumn);
+
+    function shouldSpaceAfterRank(rank) { return /(หญิง|\(พ\))/.test(rank || ""); }
     function formatDisplay(rank, firstName, lastName) {
       const space = shouldSpaceAfterRank(rank) ? " " : "";
       return `${rank || ""}${space}${firstName || ""}  ${lastName || ""}`.trim();
     }
-    
-    function removeSpaces(text) { 
-      return text ? text.toString().replace(/\s+/g, "").trim() : ""; 
-    }
+    function removeSpaces(text) { return text ? text.toString().replace(/\s+/g, "").trim() : ""; }
 
-    // อัลกอริทึมคำนวณความต่างของตัวอักษร
     function levenshtein(a, b) {
       const matrix = [];
       for (let i = 0; i <= b.length; i++) matrix[i] = [i];
@@ -139,14 +144,13 @@
       return matrix[b.length][a.length];
     }
 
-    // ฟังก์ชันประมวลผลข้อมูล
     function processValidation() {
-      const text = document.getElementById('inputArea').value;
+      const text = document.getElementById('mainInput').value;
       const resultBody = document.getElementById('resultBody');
       const rowCountLabel = document.getElementById('rowCount');
       
       if (!text.trim()) {
-        resultBody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">ยังไม่มีข้อมูลสำหรับการตรวจสอบ</td></tr>';
+        resultBody.innerHTML = '<tr><td colspan="5" class="px-4 py-16 text-center text-gray-400 font-medium">ยังไม่มีข้อมูล (กรุณาพิมพ์หรือวางรายชื่อในกล่องข้อห้ามด้านบน)</td></tr>';
         rowCountLabel.innerText = '0 รายการ';
         return;
       }
@@ -162,12 +166,8 @@
         const rawClean = removeSpaces(rawText);
         let foundRank = "";
 
-        // แกะตัวยศออกจากข้อความดิบ
         for (const r of knownRanks) {
-          if (rawClean.startsWith(removeSpaces(r))) { 
-            foundRank = r; 
-            break; 
-          }
+          if (rawClean.startsWith(removeSpaces(r))) { foundRank = r; break; }
         }
 
         const rank = foundRank || "";
@@ -182,16 +182,11 @@
         let bestMatch = null; 
         let minTotalDistance = Infinity;
 
-        // ค้นหาคนที่มีชื่อใกล้เคียงที่สุดในฐานข้อมูล
         dbData.forEach((person) => {
           const dbFirst = removeSpaces(person.firstName.toLowerCase());
           const dbLast = removeSpaces(person.lastName.toLowerCase());
           const total = levenshtein(inputFirstLower, dbFirst) + levenshtein(inputLastLower, dbLast);
-          
-          if (total < minTotalDistance) { 
-            minTotalDistance = total; 
-            bestMatch = person; 
-          }
+          if (total < minTotalDistance) { minTotalDistance = total; bestMatch = person; }
         });
 
         let displayHTML = '-'; 
@@ -207,30 +202,60 @@
           const rankMismatch = rank && removeSpaces(rank) !== removeSpaces(bestMatch.rank);
 
           if (distFirst === 0 && distLast === 0 && !rankMismatch) {
-            statusHTML = '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">ข้อมูลถูกต้อง</span>';
+            statusHTML = '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-200">ถูกต้อง</span>';
           } else {
             const wrongs = [];
             if (distFirst > 0) wrongs.push("ชื่อ");
             if (distLast > 0) wrongs.push("นามสกุล");
             if (rankMismatch) wrongs.push("ยศ");
-            statusHTML = `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">${wrongs.join("และ")}ไม่ตรง</span>`;
+            statusHTML = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200">${wrongs.join("+")}ผิด</span>`;
           }
         } else {
-          displayHTML = "ไม่พบข้อมูลในฐานข้อมูล";
-          statusHTML = '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">ไม่พบข้อมูล</span>';
+          displayHTML = "ไม่พบข้อมูล";
+          statusHTML = '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800 border border-red-200 font-bold">ไม่พบ</span>';
         }
 
-        // เขียนเนื้อหาลงไปในตัวแปรตาราง โดยตั้งค่า select-all ไว้เพื่อให้ผู้ใช้ดับเบิ้ลคลิก Copy ได้เลย
-        html += `<tr class="hover:bg-gray-50 transition-colors">
-          <td class="px-4 py-2.5 text-xs text-gray-400">${validRowIndex++}</td>
-          <td class="px-4 py-2.5 font-medium text-gray-900 select-all">${displayHTML}</td>
-          <td class="px-4 py-2.5 text-gray-600 select-all">${positionHTML}</td>
-          <td class="px-4 py-2.5 whitespace-nowrap">${statusHTML}</td>
+        // สร้างแถวตารางที่ผูกข้อมูลฝั่งซ้าย (ข้อมูลดิบ) และฝั่งขวา (ผลลัพธ์) ไว้ใน <tr> เดียวกัน ทำให้ระยะบรรทัดตรงกันแน่นอน
+        html += `<tr class="hover:bg-slate-50 transition-colors duration-150">
+          <td class="px-3 py-2 text-center text-xs font-bold text-gray-400 bg-gray-50 border-r border-gray-100">${validRowIndex++}</td>
+          <td class="px-4 py-2 text-gray-500 bg-slate-50/70 border-r border-gray-100 font-mono text-xs break-all">${rawText}</td>
+          <td class="px-4 py-2 font-semibold text-gray-900 select-all valid-name-cell">${displayHTML}</td>
+          <td class="px-4 py-2 text-gray-600 select-all">${positionHTML}</td>
+          <td class="px-4 py-2 text-center whitespace-nowrap">${statusHTML}</td>
         </tr>`;
       });
       
       resultBody.innerHTML = html;
       rowCountLabel.innerText = `${validRowIndex - 1} รายการ`;
+    }
+
+    // ฟังก์ชันช่วยก๊อปปี้เฉพาะรายชื่อที่ถูกต้องทั้งหมดในครั้งเดียว
+    function copyValidNamesColumn() {
+      const cells = document.querySelectorAll('.valid-name-cell');
+      if (cells.length === 0 || (cells.length === 1 && cells[0].innerText.includes('ยังไม่มีข้อมูล'))) {
+        alert('ไม่มีข้อมูลรายชื่อให้คัดลอก');
+        return;
+      }
+      
+      const namesList = [];
+      cells.forEach(cell => {
+        namesList.push(cell.innerText);
+      });
+      
+      const textToCopy = namesList.join('\n');
+      
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        const btn = document.getElementById('copyColBtn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '✅ คัดลอกลง Clipboard เรียบร้อย!';
+        btn.className = "mt-2 sm:mt-0 inline-flex items-center gap-1 bg-emerald-700 text-white text-xs font-medium px-3 py-1.5 rounded shadow transition-colors";
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+          btn.className = "mt-2 sm:mt-0 inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-1.5 rounded shadow transition-colors";
+        }, 2000);
+      }).catch(err => {
+        alert('ไม่สามารถก๊อปปี้อัตโนมัติได้ กรุณาลากคลุมดำแทน: ' + err);
+      });
     }
   </script>
 </body>
