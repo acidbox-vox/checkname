@@ -2,13 +2,12 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <title>ระบบตรวจสอบรายชื่อบรรทัดตรงกัน (GitHub v2.1)</title>
+  <title>ระบบตรวจสอบรายชื่อบรรทัดตรงกัน (GitHub v2.2)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
     body { font-family: 'Sarabun', sans-serif; }
-    /* ซ่อนแถบเลื่อน (Scrollbar) ของฝั่งข้อมูลดิบเพื่อให้ตารางดูคลีนและสบายตา */
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
@@ -19,9 +18,9 @@
     <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-gray-200 pb-4 mb-4">
       <div>
         <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          🔍 ระบบตรวจสอบ ยศ-ชื่อ-นามสกุล (ล็อกบรรทัดตรงกัน)
+          🔍 ระบบตรวจสอบ ยศ-ชื่อ-นามสกุล (ล็อกบรรทัดตรงกัน - อัปเดตชุดยศเพิ่ม)
         </h1>
-        <p class="text-sm text-gray-500 mt-1">ก๊อปปี้ข้อมูลรายชื่อจาก Excel หรือโปรแกรมแชทมาวางในช่อง ระบบจะเปรียบเทียบและแสดงผลลัพธ์ในแถวขนานกันทันที</p>
+        <p class="text-sm text-gray-500 mt-1">ก๊อปปี้ข้อมูลรายชื่อจาก Excel มาวางในช่องรับข้อมูล ระบบจะเปรียบเทียบและแสดงผลลัพธ์ในแถวเดียวกันทันที</p>
       </div>
       <div id="rowCount" class="mt-2 md:mt-0 text-sm font-bold bg-blue-100 text-blue-800 px-3 py-1.5 rounded-lg text-center">
         0 รายการ
@@ -38,13 +37,12 @@
         id="mainInput" 
         disabled 
         class="w-full h-32 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-all text-sm" 
-        placeholder="วางรายชื่อที่นี่... (ระบบจะแยกบรรทัดและนำไปจัดเรียงเทียบให้ในตารางด้านล่างโดยอัตโนมัติ)&#10;ตัวอย่าง:&#10;น.อ. สมชาย ดีใจ&#10;น.ท.หญิง สมศรี วันดี"></textarea>
+        placeholder="วางรายชื่อที่นี่... เช่น:&#10;ว่าที่ ร.ต. ภัทร ภัทรโกศล&#10;ร.ท. รักชาติ โพธิเทนชัย"></textarea>
     </div>
 
     <div class="space-y-2">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between">
         <label class="text-sm font-semibold text-gray-700">2. ตารางเปรียบเทียบผลลัพธ์ (คอลัมน์ตรงกันบรรทัดต่อบรรทัด):</label>
-        
         <button 
           id="copyColBtn"
           class="mt-2 sm:mt-0 inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-1.5 rounded shadow transition-colors">
@@ -76,23 +74,37 @@
   </div>
 
   <script>
-    // ⚠️ นำ URL ของ Web App (ที่ได้จากกการกด Deploy ใน Google Sheets) มาวางแทนที่ข้อความข้างล่างนี้
-    const API_URL = "https://script.google.com/macros/s/AKfycbxwp_dwpOHzMq7oOHGeex84eFoeATXvWgljAM1y5Jj98n0q3aFspG5_3GhQn_HxmIGppw/exec";
+    // ⚠️ อย่าลืมนำ URL ของ Web App จาก Google Sheets ของคุณมาวางแทนที่ตรงนี้ครับ!
+    const API_URL = "ใส่_WEB_APP_URL_ที่นี่";
 
-    // อาเรย์เก็บรายการยศทหารอากาศและคำนำหน้าเพื่อนำไปตัดคำ (เรียงยาวไปสั้นเพื่อป้องกันตัดคำผิดตัว)
+    // ✨ เพิ่มรายยศกลุ่ม "ว่าที่" และยศทหารอากาศอื่นๆ ครบทุกมิติ
     const knownRanks = [
+      // ชั้นสัญญาบัตรปกติ
       "น.อ.(พ) หญิง", "น.อ.(พ)", "น.อ.หญิง", "น.อ.",
       "น.ท.หญิง", "น.ท.", "น.ต.หญิง", "น.ต.",
       "ร.อ.หญิง", "ร.อ.", "ร.ท.หญิง", "ร.ท.", "ร.ต.หญิง", "ร.ต.",
+      
+      // ชั้นสัญญาบัตร (กลุ่ม ว่าที่)
+      "ว่าที่ น.อ.(พ) หญิง", "ว่าที่ น.อ.(พ)", "ว่าที่ น.อ.หญิง", "ว่าที่ น.อ.",
+      "ว่าที่ น.ท.หญิง", "ว่าที่ น.ท.", "ว่าที่ น.ต.หญิง", "ว่าที่ น.ต.",
+      "ว่าที่ ร.อ.หญิง", "ว่าที่ ร.อ.", "ว่าที่ ร.ท.หญิง", "ว่าที่ ร.ท.", "ว่าที่ ร.ต.หญิง", "ว่าที่ ร.ต.",
+
+      // ชั้นประทวนปกติ
       "พ.อ.อ.(พ) หญิง", "พ.อ.อ.(พ)", "พ.อ.อ.หญิง", "พ.อ.อ.",
       "พ.อ.ท.หญิง", "พ.อ.ท.", "พ.อ.ต.หญิง", "พ.อ.ต.",
       "จ.อ.หญิง", "จ.อ.", "จ.ท.หญิง", "จ.ท.", "จ.ต.หญิง", "จ.ต.",
+
+      // ชั้นประทวน (กลุ่ม ว่าที่)
+      "ว่าที่ พ.อ.อ.(พ) หญิง", "ว่าที่ พ.อ.อ.(พ)", "ว่าที่ พ.อ.อ.หญิง", "ว่าที่ พ.อ.อ.",
+      "ว่าที่ พ.อ.ท.หญิง", "ว่าที่ พ.อ.ท.", "ว่าที่ พ.อ.ต.หญิง", "ว่าที่ พ.อ.ต.",
+      "ว่าที่ จ.อ.หญิง", "ว่าที่ จ.อ.", "ว่าที่ จ.ท.หญิง", "ว่าที่ จ.ท.", "ว่าที่ จ.ต.หญิง", "ว่าที่ จ.ต.",
+      
+      // บุคคลพลเรือน
       "นาย", "นาง", "นางสาว"
-    ].sort((a, b) => b.length - a.length);
+    ].sort((a, b) => b.length - a.length); // เรียงจากยาวไปสั้นเสมอเพื่อป้องกันการตัดคำผิดพลาด
 
-    let dbData = []; // ตัวแปร Global สำหรับเก็บฐานข้อมูลดิบที่รับมาจาก API
+    let dbData = [];
 
-    // จังหวะเริ่มเปิดหน้าเว็บ: ให้ยิงดึงข้อมูลจาก Google Sheets ทันที
     window.addEventListener('DOMContentLoaded', () => {
       if(API_URL === "ใส่_WEB_APP_URL_ที่นี่"){
          const status = document.getElementById('loadingStatus');
@@ -120,10 +132,7 @@
         });
     });
 
-    // คอยดักจับอีเวนต์เมื่อมีการกรอก/วางข้อความ
     document.getElementById('mainInput').addEventListener('input', processValidation);
-    
-    // คอยดักจับอีเวนต์เมื่อมีการคลิกปุ่ม Copy ผลลัพธ์
     document.getElementById('copyColBtn').addEventListener('click', copyValidNamesColumn);
 
     function shouldSpaceAfterRank(rank) { return /(หญิง|\(พ\))/.test(rank || ""); }
@@ -133,7 +142,6 @@
     }
     function removeSpaces(text) { return text ? text.toString().replace(/\s+/g, "").trim() : ""; }
 
-    // ฟังก์ชันคำนวณหาระยะความต่างของสตริง (Levenshtein Distance)
     function levenshtein(a, b) {
       const matrix = [];
       for (let i = 0; i <= b.length; i++) matrix[i] = [i];
@@ -146,7 +154,6 @@
       return matrix[b.length][a.length];
     }
 
-    // ฟังก์ชันประมวลผล เปรียบเทียบ และตัดคำหลักของระบบ
     function processValidation() {
       const text = document.getElementById('mainInput').value;
       const resultBody = document.getElementById('resultBody');
@@ -163,14 +170,13 @@
       let validRowIndex = 1;
 
       lines.forEach((line) => {
-        if (!line.trim()) return; // ข้ามกรณีบรรทัดว่าง
+        if (!line.trim()) return;
         
-        // ✨ [จุดแก้ไข] ยุบช่องว่างและแท็บที่ซ้ำซ้อนให้เหลือเว้นวรรค 1 ช่อง ป้องกันปัญหาบั๊กตอนคัดลอกวนลูปกลับมาตรวจซ้ำ
         const rawText = line.trim().replace(/\s+/g, " ");
         const rawClean = removeSpaces(rawText);
         let foundRank = "";
 
-        // ไล่ค้นหาคำนำหน้า/ยศ
+        // ตัดยศแบบแม่นยำ
         for (const r of knownRanks) {
           if (rawClean.startsWith(removeSpaces(r))) { foundRank = r; break; }
         }
@@ -179,7 +185,7 @@
         const nameOnly = rawText.replace(rank, "").trim();
         const nameParts = nameOnly.split(/\s+/);
         let firstName = nameParts[0] || "";
-        let lastName = nameParts.slice(1).join(" ").trim(); // เคลียร์ช่องว่างท้ายสุด
+        let lastName = nameParts.slice(1).join(" ").trim();
 
         const inputFirstLower = removeSpaces(firstName.toLowerCase());
         const inputLastLower = removeSpaces(lastName.toLowerCase());
@@ -187,7 +193,6 @@
         let bestMatch = null; 
         let minTotalDistance = Infinity;
 
-        // ลูปหาคนในระบบที่มีประวัติคะแนนความใกล้เคียงสูงที่สุด
         dbData.forEach((person) => {
           const dbFirst = removeSpaces(person.firstName.toLowerCase());
           const dbLast = removeSpaces(person.lastName.toLowerCase());
@@ -207,7 +212,6 @@
           const distLast = levenshtein(inputLastLower, removeSpaces(bestMatch.lastName.toLowerCase()));
           const rankMismatch = rank && removeSpaces(rank) !== removeSpaces(bestMatch.rank);
 
-          // เช็กความตรงกันของ ชื่อ นามสกุล และ ยศ แบบไร้ขอบเขตเว้นวรรค
           if (distFirst === 0 && distLast === 0 && !rankMismatch) {
             statusHTML = '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-200">ข้อมูลถูกต้อง</span>';
           } else {
@@ -222,7 +226,6 @@
           statusHTML = '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800 border border-red-200 font-bold">ไม่พบ</span>';
         }
 
-        // มัดข้อมูลทั้งหมดรวมเข้าในแถว <tr> เดียวกันเพื่อล็อกตารางให้มีความสูงและบรรทัดเท่ากัน
         html += `<tr class="hover:bg-slate-50 transition-colors duration-150">
           <td class="px-3 py-2 text-center text-xs font-bold text-gray-400 bg-gray-50 border-r border-gray-100">${validRowIndex++}</td>
           <td class="px-4 py-2 text-gray-500 bg-slate-50/70 border-r border-gray-100 font-mono text-xs break-all">${line.trim()}</td>
@@ -236,7 +239,6 @@
       rowCountLabel.innerText = `${validRowIndex - 1} รายการ`;
     }
 
-    // ฟังก์ชันสั่งก๊อปปี้ข้อมูลเฉพาะคอลัมน์ชื่อที่ถูกต้อง ลงในหน่วยความจำชั่วคราว (Clipboard)
     function copyValidNamesColumn() {
       const cells = document.querySelectorAll('.valid-name-cell');
       if (cells.length === 0 || (cells.length === 1 && cells[0].innerText.includes('ยังไม่มีข้อมูล'))) {
