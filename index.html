@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <title>ระบบตรวจสอบรายชื่อบรรทัดตรงกัน (GitHub v2.2)</title>
+  <title>ระบบตรวจสอบรายชื่อบรรทัดตรงกัน (GitHub v2.3 - รวมล่าสุด)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -18,9 +18,9 @@
     <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-gray-200 pb-4 mb-4">
       <div>
         <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          🔍 ระบบตรวจสอบ ยศ-ชื่อ-นามสกุล (ล็อกบรรทัดตรงกัน - อัปเดตชุดยศเพิ่ม)
+          🔍 ระบบตรวจสอบ ยศ-ชื่อ-นามสกุล (เวอร์ชันสมบูรณ์ที่สุด)
         </h1>
-        <p class="text-sm text-gray-500 mt-1">ก๊อปปี้ข้อมูลรายชื่อจาก Excel มาวางในช่องรับข้อมูล ระบบจะเปรียบเทียบและแสดงผลลัพธ์ในแถวเดียวกันทันที</p>
+        <p class="text-sm text-gray-500 mt-1">ตรวจสอบ ยศ ชื่อ นามสกุล ได้แม่นยำ ล็อกบรรทัดขนานกัน ซ่อมบั๊กการเว้นวรรคและกลุ่มยศ "ว่าที่" เรียบร้อย</p>
       </div>
       <div id="rowCount" class="mt-2 md:mt-0 text-sm font-bold bg-blue-100 text-blue-800 px-3 py-1.5 rounded-lg text-center">
         0 รายการ
@@ -37,7 +37,7 @@
         id="mainInput" 
         disabled 
         class="w-full h-32 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-all text-sm" 
-        placeholder="วางรายชื่อที่นี่... เช่น:&#10;ว่าที่ ร.ต. ภัทร ภัทรโกศล&#10;ร.ท. รักชาติ โพธิเทนชัย"></textarea>
+        placeholder="วางหรือก๊อปปี้รายชื่อมาแปะตรงนี้ได้เลย...&#10;ตัวอย่าง:&#10;ว่าที่ ร.ต. ภัทร ภัทรโกศล&#10;ร.ท. รักชาติ โพธิเทนชัย"></textarea>
     </div>
 
     <div class="space-y-2">
@@ -74,10 +74,10 @@
   </div>
 
   <script>
-    // ⚠️ อย่าลืมนำ URL ของ Web App จาก Google Sheets ของคุณมาวางแทนที่ตรงนี้ครับ!
+    // ⚠️ นำ URL ของ Web App (ที่ได้จากการ Deploy ใน Google Sheets) มาวางแทนที่ข้อความข้างล่างนี้ครับ
     const API_URL = "https://script.google.com/macros/s/AKfycbxwp_dwpOHzMq7oOHGeex84eFoeATXvWgljAM1y5Jj98n0q3aFspG5_3GhQn_HxmIGppw/exec";
 
-    // ✨ เพิ่มรายยศกลุ่ม "ว่าที่" และยศทหารอากาศอื่นๆ ครบทุกมิติ
+    // รายการยศอัปเดตครบถ้วน ทั้งปกติ และกลุ่ม "ว่าที่" ทุกลำดับชั้น
     const knownRanks = [
       // ชั้นสัญญาบัตรปกติ
       "น.อ.(พ) หญิง", "น.อ.(พ)", "น.อ.หญิง", "น.อ.",
@@ -101,14 +101,15 @@
       
       // บุคคลพลเรือน
       "นาย", "นาง", "นางสาว"
-    ].sort((a, b) => b.length - a.length); // เรียงจากยาวไปสั้นเสมอเพื่อป้องกันการตัดคำผิดพลาด
+    ].sort((a, b) => b.length - a.length);
 
     let dbData = [];
 
+    // ดึงข้อมูลจากฐานข้อมูล Google Sheets ตอนเริ่มเปิดหน้าจอ
     window.addEventListener('DOMContentLoaded', () => {
       if(API_URL === "ใส่_WEB_APP_URL_ที่นี่"){
          const status = document.getElementById('loadingStatus');
-         status.innerHTML = '⚠️ แจ้งเตือน: กรุณานำ URL ของ Apps Script มาใส่ในโค้ด JavaScript บรรทัดที่ 78 ก่อนใช้งาน';
+         status.innerHTML = '⚠️ แจ้งเตือน: กรุณานำ URL ของ Apps Script มาใส่ในโค้ด JavaScript บรรทัดที่ 77 ก่อนใช้งาน';
          status.className = "mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm font-medium animate-none";
          return;
       }
@@ -154,6 +155,7 @@
       return matrix[b.length][a.length];
     }
 
+    // ฟังก์ชันประมวลผล เปรียบเทียบ ยศ ชื่อ นามสกุล ตัวล่าสุด
     function processValidation() {
       const text = document.getElementById('mainInput').value;
       const resultBody = document.getElementById('resultBody');
@@ -172,27 +174,29 @@
       lines.forEach((line) => {
         if (!line.trim()) return;
         
-        const rawText = line.trim().replace(/\s+/g, " ");
+        const rawText = line.trim();
         const rawClean = removeSpaces(rawText);
         let foundRank = "";
 
-        // ตัดยศแบบแม่นยำ
+        // ค้นหาและดักจับยศ
         for (const r of knownRanks) {
           if (rawClean.startsWith(removeSpaces(r))) { foundRank = r; break; }
         }
 
         const rank = foundRank || "";
         const nameOnly = rawText.replace(rank, "").trim();
-        const nameParts = nameOnly.split(/\s+/);
+        const nameParts = nameOnly.split(/\s+/).filter(p => p.trim() !== "");
         let firstName = nameParts[0] || "";
         let lastName = nameParts.slice(1).join(" ").trim();
 
         const inputFirstLower = removeSpaces(firstName.toLowerCase());
         const inputLastLower = removeSpaces(lastName.toLowerCase());
+        const inputRankClean = removeSpaces(rank.toLowerCase());
         
         let bestMatch = null; 
         let minTotalDistance = Infinity;
 
+        // วิ่งหาแถวที่ชื่อใกล้เคียงที่สุดในฐานข้อมูล
         dbData.forEach((person) => {
           const dbFirst = removeSpaces(person.firstName.toLowerCase());
           const dbLast = removeSpaces(person.lastName.toLowerCase());
@@ -210,8 +214,12 @@
           
           const distFirst = levenshtein(inputFirstLower, removeSpaces(bestMatch.firstName.toLowerCase()));
           const distLast = levenshtein(inputLastLower, removeSpaces(bestMatch.lastName.toLowerCase()));
-          const rankMismatch = rank && removeSpaces(rank) !== removeSpaces(bestMatch.rank);
+          
+          // ตรวจสอบยศแบบยืดหยุ่น ป้องกันช่องว่างแฝงฝั่งหลังบ้าน
+          const dbRankClean = removeSpaces(bestMatch.rank.toLowerCase());
+          const rankMismatch = inputRankClean !== "" && inputRankClean !== dbRankClean;
 
+          // ถ้า ชื่อ ตรง, นามสกุล ตรง, ยศ ตรง (หรือไม่ได้พิมพ์ยศมาตรวจ) = ข้อมูลถูกต้องครบถ้วน
           if (distFirst === 0 && distLast === 0 && !rankMismatch) {
             statusHTML = '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-200">ข้อมูลถูกต้อง</span>';
           } else {
@@ -228,7 +236,7 @@
 
         html += `<tr class="hover:bg-slate-50 transition-colors duration-150">
           <td class="px-3 py-2 text-center text-xs font-bold text-gray-400 bg-gray-50 border-r border-gray-100">${validRowIndex++}</td>
-          <td class="px-4 py-2 text-gray-500 bg-slate-50/70 border-r border-gray-100 font-mono text-xs break-all">${line.trim()}</td>
+          <td class="px-4 py-2 text-gray-500 bg-slate-50/70 border-r border-gray-100 font-mono text-xs break-all">${rawText}</td>
           <td class="px-4 py-2 font-semibold text-gray-900 select-all valid-name-cell">${displayHTML}</td>
           <td class="px-4 py-2 text-gray-600 select-all">${positionHTML}</td>
           <td class="px-4 py-2 text-center whitespace-nowrap">${statusHTML}</td>
