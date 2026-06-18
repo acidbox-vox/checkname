@@ -2,13 +2,13 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <title>ระบบตรวจสอบรายชื่อบรรทัดตรงกัน (GitHub v2.0)</title>
+  <title>ระบบตรวจสอบรายชื่อบรรทัดตรงกัน (GitHub v2.1)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
     body { font-family: 'Sarabun', sans-serif; }
-    /* ซ่อน Scrollbar ของฝั่ง Input ไม่ให้เกะกะ แต่ยัง Scroll ไปพร้อมกันได้ */
+    /* ซ่อนแถบเลื่อน (Scrollbar) ของฝั่งข้อมูลดิบเพื่อให้ตารางดูคลีนและสบายตา */
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
@@ -21,7 +21,7 @@
         <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
           🔍 ระบบตรวจสอบ ยศ-ชื่อ-นามสกุล (ล็อกบรรทัดตรงกัน)
         </h1>
-        <p class="text-sm text-gray-500 mt-1">ก๊อปปี้ข้อมูลรายชื่อจาก Excel มาวางในช่องรับข้อมูล ระบบจะเปรียบเทียบและแสดงผลลัพธ์ในแถวเดียวกันทันที</p>
+        <p class="text-sm text-gray-500 mt-1">ก๊อปปี้ข้อมูลรายชื่อจาก Excel หรือโปรแกรมแชทมาวางในช่อง ระบบจะเปรียบเทียบและแสดงผลลัพธ์ในแถวขนานกันทันที</p>
       </div>
       <div id="rowCount" class="mt-2 md:mt-0 text-sm font-bold bg-blue-100 text-blue-800 px-3 py-1.5 rounded-lg text-center">
         0 รายการ
@@ -38,7 +38,7 @@
         id="mainInput" 
         disabled 
         class="w-full h-32 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-all text-sm" 
-        placeholder="ก๊อปปี้รายชื่อมาแปะตรงนี้ได้เลย (ระบบจะแยกบรรทัดและนำไปจัดเรียงเทียบให้ด้านล่างอัตโนมัติ)&#10;ตัวอย่าง:&#10;น.อ. สมชาย ดีใจ&#10;น.ท.หญิง สมศรี วันดี"></textarea>
+        placeholder="วางรายชื่อที่นี่... (ระบบจะแยกบรรทัดและนำไปจัดเรียงเทียบให้ในตารางด้านล่างโดยอัตโนมัติ)&#10;ตัวอย่าง:&#10;น.อ. สมชาย ดีใจ&#10;น.ท.หญิง สมศรี วันดี"></textarea>
     </div>
 
     <div class="space-y-2">
@@ -66,7 +66,7 @@
           <tbody id="resultBody" class="bg-white divide-y divide-gray-200 text-sm">
             <tr>
               <td colspan="5" class="px-4 py-16 text-center text-gray-400 font-medium">
-                ยังไม่มีข้อมูล (กรุณาพิมพ์หรือวางรายชื่อในกล่องข้อห้ามด้านบน)
+                ยังไม่มีข้อมูล (กรุณาพิมพ์หรือวางรายชื่อในกล่องด้านบน)
               </td>
             </tr>
           </tbody>
@@ -76,9 +76,10 @@
   </div>
 
   <script>
-    // ⚠️ นำ URL ของ Web App จาก Google Sheets มาวางแทนที่ตรงนี้
+    // ⚠️ นำ URL ของ Web App (ที่ได้จากกการกด Deploy ใน Google Sheets) มาวางแทนที่ข้อความข้างล่างนี้
     const API_URL = "https://script.google.com/macros/s/AKfycbxwp_dwpOHzMq7oOHGeex84eFoeATXvWgljAM1y5Jj98n0q3aFspG5_3GhQn_HxmIGppw/exec";
 
+    // อาเรย์เก็บรายการยศทหารอากาศและคำนำหน้าเพื่อนำไปตัดคำ (เรียงยาวไปสั้นเพื่อป้องกันตัดคำผิดตัว)
     const knownRanks = [
       "น.อ.(พ) หญิง", "น.อ.(พ)", "น.อ.หญิง", "น.อ.",
       "น.ท.หญิง", "น.ท.", "น.ต.หญิง", "น.ต.",
@@ -89,13 +90,13 @@
       "นาย", "นาง", "นางสาว"
     ].sort((a, b) => b.length - a.length);
 
-    let dbData = [];
+    let dbData = []; // ตัวแปร Global สำหรับเก็บฐานข้อมูลดิบที่รับมาจาก API
 
-    // โหลดข้อมูลตอนเปิดหน้าจอ
+    // จังหวะเริ่มเปิดหน้าเว็บ: ให้ยิงดึงข้อมูลจาก Google Sheets ทันที
     window.addEventListener('DOMContentLoaded', () => {
       if(API_URL === "ใส่_WEB_APP_URL_ที่นี่"){
          const status = document.getElementById('loadingStatus');
-         status.innerHTML = '⚠️ แจ้งเตือน: กรุณานำ URL ของ Apps Script มาใส่ในโค้ด JavaScript ก่อนใช้งาน';
+         status.innerHTML = '⚠️ แจ้งเตือน: กรุณานำ URL ของ Apps Script มาใส่ในโค้ด JavaScript บรรทัดที่ 78 ก่อนใช้งาน';
          status.className = "mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm font-medium animate-none";
          return;
       }
@@ -106,7 +107,7 @@
           if(data.error) throw new Error(data.error);
           dbData = data;
           const status = document.getElementById('loadingStatus');
-          status.innerHTML = '✅ เชื่อมต่อฐานข้อมูลสำเร็จ! ระบบล็อกบรรทัดพร้อมใช้งาน';
+          status.innerHTML = '✅ เชื่อมต่อฐานข้อมูลสำเร็จ! ระบบล็อกแถวบรรทัดตรงพร้อมใช้งานตรวจเช็กแบบ Real-time';
           status.className = "mb-4 p-3 bg-green-50 text-green-700 rounded-lg text-sm font-medium";
           
           const mainInput = document.getElementById('mainInput');
@@ -114,15 +115,15 @@
           mainInput.focus();
         })
         .catch(err => {
-          document.getElementById('loadingStatus').innerHTML = '❌ ดึงข้อมูลล้มเหลว: ' + err.message;
+          document.getElementById('loadingStatus').innerHTML = '❌ ดึงฐานข้อมูลล้มเหลว: ' + err.message;
           document.getElementById('loadingStatus').className = "mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm font-medium animate-none";
         });
     });
 
-    // ดักฟังเหตุการณ์เมื่อมีการแปะหรือคีย์ข้อมูลดิบ
+    // คอยดักจับอีเวนต์เมื่อมีการกรอก/วางข้อความ
     document.getElementById('mainInput').addEventListener('input', processValidation);
     
-    // ดักฟังก์ชันปุ่มก๊อปปี้ทั้งคอลัมน์
+    // คอยดักจับอีเวนต์เมื่อมีการคลิกปุ่ม Copy ผลลัพธ์
     document.getElementById('copyColBtn').addEventListener('click', copyValidNamesColumn);
 
     function shouldSpaceAfterRank(rank) { return /(หญิง|\(พ\))/.test(rank || ""); }
@@ -132,6 +133,7 @@
     }
     function removeSpaces(text) { return text ? text.toString().replace(/\s+/g, "").trim() : ""; }
 
+    // ฟังก์ชันคำนวณหาระยะความต่างของสตริง (Levenshtein Distance)
     function levenshtein(a, b) {
       const matrix = [];
       for (let i = 0; i <= b.length; i++) matrix[i] = [i];
@@ -144,13 +146,14 @@
       return matrix[b.length][a.length];
     }
 
+    // ฟังก์ชันประมวลผล เปรียบเทียบ และตัดคำหลักของระบบ
     function processValidation() {
       const text = document.getElementById('mainInput').value;
       const resultBody = document.getElementById('resultBody');
       const rowCountLabel = document.getElementById('rowCount');
       
       if (!text.trim()) {
-        resultBody.innerHTML = '<tr><td colspan="5" class="px-4 py-16 text-center text-gray-400 font-medium">ยังไม่มีข้อมูล (กรุณาพิมพ์หรือวางรายชื่อในกล่องข้อห้ามด้านบน)</td></tr>';
+        resultBody.innerHTML = '<tr><td colspan="5" class="px-4 py-16 text-center text-gray-400 font-medium">ยังไม่มีข้อมูล (กรุณาพิมพ์หรือวางรายชื่อในกล่องด้านบน)</td></tr>';
         rowCountLabel.innerText = '0 รายการ';
         return;
       }
@@ -160,12 +163,14 @@
       let validRowIndex = 1;
 
       lines.forEach((line) => {
-        if (!line.trim()) return; // ข้ามบรรทัดว่าง
+        if (!line.trim()) return; // ข้ามกรณีบรรทัดว่าง
         
-        const rawText = line.trim();
+        // ✨ [จุดแก้ไข] ยุบช่องว่างและแท็บที่ซ้ำซ้อนให้เหลือเว้นวรรค 1 ช่อง ป้องกันปัญหาบั๊กตอนคัดลอกวนลูปกลับมาตรวจซ้ำ
+        const rawText = line.trim().replace(/\s+/g, " ");
         const rawClean = removeSpaces(rawText);
         let foundRank = "";
 
+        // ไล่ค้นหาคำนำหน้า/ยศ
         for (const r of knownRanks) {
           if (rawClean.startsWith(removeSpaces(r))) { foundRank = r; break; }
         }
@@ -174,7 +179,7 @@
         const nameOnly = rawText.replace(rank, "").trim();
         const nameParts = nameOnly.split(/\s+/);
         let firstName = nameParts[0] || "";
-        let lastName = nameParts.slice(1).join(" ");
+        let lastName = nameParts.slice(1).join(" ").trim(); // เคลียร์ช่องว่างท้ายสุด
 
         const inputFirstLower = removeSpaces(firstName.toLowerCase());
         const inputLastLower = removeSpaces(lastName.toLowerCase());
@@ -182,6 +187,7 @@
         let bestMatch = null; 
         let minTotalDistance = Infinity;
 
+        // ลูปหาคนในระบบที่มีประวัติคะแนนความใกล้เคียงสูงที่สุด
         dbData.forEach((person) => {
           const dbFirst = removeSpaces(person.firstName.toLowerCase());
           const dbLast = removeSpaces(person.lastName.toLowerCase());
@@ -201,8 +207,9 @@
           const distLast = levenshtein(inputLastLower, removeSpaces(bestMatch.lastName.toLowerCase()));
           const rankMismatch = rank && removeSpaces(rank) !== removeSpaces(bestMatch.rank);
 
+          // เช็กความตรงกันของ ชื่อ นามสกุล และ ยศ แบบไร้ขอบเขตเว้นวรรค
           if (distFirst === 0 && distLast === 0 && !rankMismatch) {
-            statusHTML = '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-200">ถูกต้อง</span>';
+            statusHTML = '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-200">ข้อมูลถูกต้อง</span>';
           } else {
             const wrongs = [];
             if (distFirst > 0) wrongs.push("ชื่อ");
@@ -215,10 +222,10 @@
           statusHTML = '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800 border border-red-200 font-bold">ไม่พบ</span>';
         }
 
-        // สร้างแถวตารางที่ผูกข้อมูลฝั่งซ้าย (ข้อมูลดิบ) และฝั่งขวา (ผลลัพธ์) ไว้ใน <tr> เดียวกัน ทำให้ระยะบรรทัดตรงกันแน่นอน
+        // มัดข้อมูลทั้งหมดรวมเข้าในแถว <tr> เดียวกันเพื่อล็อกตารางให้มีความสูงและบรรทัดเท่ากัน
         html += `<tr class="hover:bg-slate-50 transition-colors duration-150">
           <td class="px-3 py-2 text-center text-xs font-bold text-gray-400 bg-gray-50 border-r border-gray-100">${validRowIndex++}</td>
-          <td class="px-4 py-2 text-gray-500 bg-slate-50/70 border-r border-gray-100 font-mono text-xs break-all">${rawText}</td>
+          <td class="px-4 py-2 text-gray-500 bg-slate-50/70 border-r border-gray-100 font-mono text-xs break-all">${line.trim()}</td>
           <td class="px-4 py-2 font-semibold text-gray-900 select-all valid-name-cell">${displayHTML}</td>
           <td class="px-4 py-2 text-gray-600 select-all">${positionHTML}</td>
           <td class="px-4 py-2 text-center whitespace-nowrap">${statusHTML}</td>
@@ -229,7 +236,7 @@
       rowCountLabel.innerText = `${validRowIndex - 1} รายการ`;
     }
 
-    // ฟังก์ชันช่วยก๊อปปี้เฉพาะรายชื่อที่ถูกต้องทั้งหมดในครั้งเดียว
+    // ฟังก์ชันสั่งก๊อปปี้ข้อมูลเฉพาะคอลัมน์ชื่อที่ถูกต้อง ลงในหน่วยความจำชั่วคราว (Clipboard)
     function copyValidNamesColumn() {
       const cells = document.querySelectorAll('.valid-name-cell');
       if (cells.length === 0 || (cells.length === 1 && cells[0].innerText.includes('ยังไม่มีข้อมูล'))) {
@@ -238,10 +245,7 @@
       }
       
       const namesList = [];
-      cells.forEach(cell => {
-        namesList.push(cell.innerText);
-      });
-      
+      cells.forEach(cell => { namesList.push(cell.innerText); });
       const textToCopy = namesList.join('\n');
       
       navigator.clipboard.writeText(textToCopy).then(() => {
@@ -254,7 +258,7 @@
           btn.className = "mt-2 sm:mt-0 inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-1.5 rounded shadow transition-colors";
         }, 2000);
       }).catch(err => {
-        alert('ไม่สามารถก๊อปปี้อัตโนมัติได้ กรุณาลากคลุมดำแทน: ' + err);
+        alert('ไม่สามารถก๊อปปี้อัตโนมัติได้ กรุณาลากคลุมดำเพื่อ Copy แทน: ' + err);
       });
     }
   </script>
