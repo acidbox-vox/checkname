@@ -10,6 +10,16 @@
     body { font-family: 'Sarabun', sans-serif; }
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    /* ทำให้แต่ละเซลล์เลือก/ก๊อปได้เฉพาะตัวเอง ไม่ลากยาวข้ามคอลัมน์อื่น */
+    .copyable-cell { user-select: all; cursor: pointer; position: relative; }
+    .copyable-cell:hover { background-color: #eff6ff; }
+    .copyable-cell.copied { background-color: #d1fae5 !important; }
+    .copy-toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: #1e293b; color: white; padding: 8px 16px; border-radius: 8px; font-size: 13px;
+      opacity: 0; transition: all 0.25s ease; pointer-events: none; z-index: 50; white-space: nowrap;
+    }
+    .copy-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   </style>
 </head>
 <body class="bg-slate-100 min-h-screen p-4 md:p-8">
@@ -41,14 +51,24 @@
     </div>
 
     <div class="space-y-2">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <label class="text-sm font-semibold text-gray-700">2. ตารางเปรียบเทียบผลลัพธ์ (คอลัมน์ตรงกันบรรทัดต่อบรรทัด):</label>
-        <button 
-          id="copyColBtn"
-          class="mt-2 sm:mt-0 inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-1.5 rounded shadow transition-colors">
-          📋 ก๊อปปี้เฉพาะคอลัมน์ชื่อที่ถูกต้องทั้งหมด
-        </button>
+        <div class="flex flex-wrap gap-2">
+          <button 
+            id="copyColBtn"
+            data-selector=".valid-name-cell"
+            class="copy-col-btn inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-1.5 rounded shadow transition-colors">
+            📋 ก๊อปปี้คอลัมน์ ยศ-ชื่อ-สกุล
+          </button>
+          <button 
+            id="copyPositionBtn"
+            data-selector=".position-cell"
+            class="copy-col-btn inline-flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium px-3 py-1.5 rounded shadow transition-colors">
+            📋 ก๊อปปี้คอลัมน์ ตำแหน่ง
+          </button>
+        </div>
       </div>
+      <p class="text-xs text-gray-400">💡 เคล็ดลับ: คลิกที่เซลล์ใดก็ได้ในตาราง 1 ครั้ง เพื่อก๊อปปี้เฉพาะข้อความในเซลล์นั้นทันที ไม่ต้องลากเลือก</p>
 
       <div class="overflow-x-auto border border-gray-200 rounded-lg shadow-inner max-h-[550px] overflow-y-auto">
         <table class="min-w-full divide-y divide-gray-200 table-fixed">
@@ -72,6 +92,8 @@
       </div>
     </div>
   </div>
+
+  <div id="copyToast" class="copy-toast"></div>
 
   <script>
     // ⚠️ นำ URL ของ Web App (ที่ได้จากการ Deploy ใน Google Sheets) มาวางแทนที่ข้อความข้างล่างนี้ครับ
@@ -134,7 +156,32 @@
     });
 
     document.getElementById('mainInput').addEventListener('input', processValidation);
-    document.getElementById('copyColBtn').addEventListener('click', copyValidNamesColumn);
+    document.querySelectorAll('.copy-col-btn').forEach(btn => {
+      btn.addEventListener('click', () => copyColumn(btn));
+    });
+
+    // คลิกที่เซลล์ใดก็ได้ในตาราง เพื่อก๊อปปี้เฉพาะเซลล์นั้น (ไม่ต้องลาก)
+    document.getElementById('resultBody').addEventListener('click', (e) => {
+      const cell = e.target.closest('.copyable-cell');
+      if (!cell) return;
+      const text = cell.innerText.trim();
+      if (!text || text === '-') return;
+      navigator.clipboard.writeText(text).then(() => {
+        cell.classList.add('copied');
+        setTimeout(() => cell.classList.remove('copied'), 500);
+        showToast('คัดลอกแล้ว: ' + text);
+      }).catch(() => {
+        showToast('ก๊อปปี้อัตโนมัติไม่สำเร็จ');
+      });
+    });
+
+    function showToast(msg) {
+      const toast = document.getElementById('copyToast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => toast.classList.remove('show'), 1600);
+    }
 
     function shouldSpaceAfterRank(rank) { return /(หญิง|\(พ\))/.test(rank || ""); }
     function formatDisplay(rank, firstName, lastName) {
@@ -236,9 +283,9 @@
 
         html += `<tr class="hover:bg-slate-50 transition-colors duration-150">
           <td class="px-3 py-2 text-center text-xs font-bold text-gray-400 bg-gray-50 border-r border-gray-100">${validRowIndex++}</td>
-          <td class="px-4 py-2 text-gray-500 bg-slate-50/70 border-r border-gray-100 font-mono text-xs break-all">${rawText}</td>
-          <td class="px-4 py-2 font-semibold text-gray-900 select-all valid-name-cell">${displayHTML}</td>
-          <td class="px-4 py-2 text-gray-600 select-all">${positionHTML}</td>
+          <td class="px-4 py-2 text-gray-500 bg-slate-50/70 border-r border-gray-100 font-mono text-xs break-all copyable-cell">${rawText}</td>
+          <td class="px-4 py-2 font-semibold text-gray-900 valid-name-cell copyable-cell">${displayHTML}</td>
+          <td class="px-4 py-2 text-gray-600 position-cell copyable-cell">${positionHTML}</td>
           <td class="px-4 py-2 text-center whitespace-nowrap">${statusHTML}</td>
         </tr>`;
       });
@@ -247,10 +294,11 @@
       rowCountLabel.innerText = `${validRowIndex - 1} รายการ`;
     }
 
-    function copyValidNamesColumn() {
-      const cells = document.querySelectorAll('.valid-name-cell');
+    function copyColumn(btn) {
+      const selector = btn.getAttribute('data-selector');
+      const cells = document.querySelectorAll(selector);
       if (cells.length === 0 || (cells.length === 1 && cells[0].innerText.includes('ยังไม่มีข้อมูล'))) {
-        alert('ไม่มีข้อมูลรายชื่อให้คัดลอก');
+        alert('ไม่มีข้อมูลให้คัดลอก');
         return;
       }
       
@@ -259,13 +307,13 @@
       const textToCopy = namesList.join('\n');
       
       navigator.clipboard.writeText(textToCopy).then(() => {
-        const btn = document.getElementById('copyColBtn');
         const originalText = btn.innerHTML;
+        const originalClass = btn.className;
         btn.innerHTML = '✅ คัดลอกลง Clipboard เรียบร้อย!';
-        btn.className = "mt-2 sm:mt-0 inline-flex items-center gap-1 bg-emerald-700 text-white text-xs font-medium px-3 py-1.5 rounded shadow transition-colors";
+        btn.className = originalClass.replace(/bg-(green|indigo)-600|hover:bg-(green|indigo)-700/g, '').trim() + ' bg-emerald-700';
         setTimeout(() => {
           btn.innerHTML = originalText;
-          btn.className = "mt-2 sm:mt-0 inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-1.5 rounded shadow transition-colors";
+          btn.className = originalClass;
         }, 2000);
       }).catch(err => {
         alert('ไม่สามารถก๊อปปี้อัตโนมัติได้ กรุณาลากคลุมดำเพื่อ Copy แทน: ' + err);
